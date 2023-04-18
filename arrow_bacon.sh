@@ -1,36 +1,57 @@
 #!/bin/bash
 
-# 執行編譯系統的環境建構腳本指令
+# 設定存放變數的檔案名稱
+VAR_FILE=".last_build_vars"
+
+# 讀取存放變數的檔案，如果檔案不存在就建立一個
+if [ -f "$VAR_FILE" ]; then
+  source "$VAR_FILE"
+else
+  touch "$VAR_FILE"
+fi
+
+# 詢問是否使用上次的類型
+if [ -n "$codename" ] && [ -n "$build" ]; then
+  read -p "上次的裝置類型為 $codename-$build （Gapps: $gapps_option），是否要使用？(y/n): " reuse_last
+  if [[ "$reuse_last" == "y" || "$reuse_last" == "Y" ]]; then
+    echo "使用上次的裝置類型 $codename-$build 和 Gapps 編譯選項 $gapps_option"
+  else
+    reuse_last="n"
+  fi
+else
+  reuse_last="n"
+fi
+
+# 如果不使用上次的類型，就詢問新的裝置類型和編譯選項
+if [[ "$reuse_last" == "n" ]]; then
+  read -p "請輸入編譯設備的裝置代號: " codename
+  read -p "請輸入編譯設備的變體: " build
+  while true; do
+    read -p "是否編譯 Gapps 套件？(y/n): " gapps_input
+    case $gapps_input in
+      [Yy]* )
+        gapps_option="編譯";
+        export ARROW_GAPPS=true;
+        export TARGET_GAPPS_ARCH=arm64;
+        break;;
+      [Nn]* )
+        gapps_option="不編譯";
+        break;;
+      * ) echo "請輸入 y 或 n.";;
+    esac
+  done
+
+  # 將變數寫入檔案
+  echo "codename=$codename" > "$VAR_FILE"
+  echo "build=$build" >> "$VAR_FILE"
+  echo "gapps_option=$gapps_option" >> "$VAR_FILE"
+fi
+
+# 初始化構建環境
 . build/envsetup.sh
 
-# 詢問使用者輸入編譯設備的裝置代號
-read -p "請輸入編譯設備的裝置代號: " codename
+# 選擇裝置類型
+lunch "arrow_$codename-$build"
 
-# 詢問使用者輸入編譯設備的變體
-read -p "請輸入編譯設備的變體: " build
-
-# 詢問使用者是否需要編譯 Gapps 套件
-answer=""
-while [[ ! "${answer,,}" =~ ^(y|n|yes|no)$ ]]; do
-  read -p "是否需要編譯 Gapps 套件 (Y/N)? " answer
-  case ${answer,,} in
-    y|yes)
-      # 如果回答 Y 或是 YES（大小寫皆可）, 則執行下列指令
-      export ARROW_GAPPS=true
-      export TARGET_GAPPS_ARCH=arm64
-      ;;
-    n|no)
-      # 如果回答 N 或是 NO（大小寫皆可）, 則不執行任何指令
-      ;;
-    *)
-      echo "無效的回答，請重新輸入"
-      answer=""
-      ;;
-  esac
-done
-
-# 執行 lunch 指令
-lunch arrow_${codename}-${build}
-
-# 執行 make 指令
+# 編譯
 make bacon -j$(nproc --all)
