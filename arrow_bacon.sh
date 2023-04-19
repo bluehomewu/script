@@ -15,6 +15,16 @@ if [ -n "$codename" ] && [ -n "$build" ]; then
   read -p "上次的裝置類型為 $codename-$build （Gapps: $gapps_option），是否要使用？(y/n): " reuse_last
   if [[ "$reuse_last" == "y" || "$reuse_last" == "Y" ]]; then
     echo "使用上次的裝置類型 $codename-$build 和 Gapps 編譯選項 $gapps_option"
+    if [["$gapps_option"]] == "編譯"; then
+      export ARROW_GAPPS=true;
+      export TARGET_GAPPS_ARCH=arm64;
+    elif [["$gapps_option"]] == "不編譯"; then
+      export ARROW_GAPPS=false;
+      export TARGET_GAPPS_ARCH=arm64;
+    else
+      echo "Gapps 編譯選項錯誤，請重新執行腳本"
+      exit 1
+    fi
   else
     reuse_last="n"
   fi
